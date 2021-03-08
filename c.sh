@@ -1,10 +1,11 @@
 #!/bin/bash
 
 cinfo=$HOME/.cinfo
+hinfo=$HOME/.hinfo
 
 
 #打印收藏夹
-function list
+function clist
 { 
     local l=1
 
@@ -25,12 +26,32 @@ function list
     done
     echo ""
 }
+
+#打印命令收藏夹
+function hlist
+{ 
+    local l=1
+
+    if [ ! -f "$hinfo" ];then
+        touch $hinfo
+        return
+    fi
+
+    echo ""
+    cat $hinfo | sort | awk '{print NR" "$0}'
+    echo ""
+    cat $hinfo | sort | awk '{print $0 >> "'${hinfo}tmp'"}'
+    
+    if [ -f "${hinfo}tmp" ];then
+        mv ${hinfo}tmp $hinfo
+    fi
+}
         
 
 
 
 #删除路径
-function del
+function cdel
 {
     if [ $# -eq 0 ];then
         sed -i "\%^${PWD}$%d" $cinfo
@@ -57,8 +78,25 @@ function del
     done
 }
 
+#删除命令
+function hdel
+{
+    local maxline=$(cat $hinfo|wc -l)
+    local arr=("$@")
+    arr=($(echo ${arr[@]} | sed 's/ /\n/g'|sort -u -r))
+    
+    if [ ${arr[0]} -gt $maxline ];then
+        echo "err del line:${arr[0]}"
+        return
+    fi
+    for line in ${arr[@]}
+    do
+        sed -i "${line}d" $hinfo
+    done
+}
+
 #添加收藏夹
-function add
+function cadd
 {
     local next=0
     local dir=""
@@ -100,17 +138,41 @@ function add
     done
 }
 
+#添加命令收藏夹
+function hadd
+{
+    local cmd="$*"
+    
+    if [ $# -eq 0 ];then
+        return
+    fi
+    
+    while read line
+    do 
+        if [ "line" == "$cmd" ];then
+            echo "same cmd:$cmd"
+        fi
+    do < $hinfo
+    echo -ne "$cmd\n" >> $hinfo
+}
+
 #清空收藏夹
-function clear
+function cclear
 {
     cat /dev/null > $cinfo
+}
+
+#清空命令收藏夹
+function cclear
+{
+    cat /dev/null > $hinfo
 }
 
 #进入收藏夹
 function cdir
 {
     if [ $# -eq 0 ];then
-        list 
+        clist 
         return
     elif [ $# -gt 1 ];then
         echo "cdir err params, > max params num"
@@ -132,40 +194,207 @@ function cdir
     cd $(sed -n "$1p" $cinfo)
 }
 
-
-
-#help
-function USAGE
+#执行命令
+function hcmd
 {
-    echo "usage"
+    if [ $# -eq 0 ];then
+        hlist
+        return
+    fi
+    
+    local str=$(echo $*|grep "[^0-9]")
+    if [ "$str" != "" ];then
+        eval $*
+        return
+    fi
+    
+    local maxline=$(cat $hinfo|wc -l)
+    if [ $1 -gt $maxline ];then
+        echo "cmd err params, > max lines"
+        return
+    fi
+    
+    eval $(sed -n "$1p" $hinfo)
 }
 
 
+#help
+function cUSAGE
+{
+    echo "usage"
+    echo "=============="
+    echo "c [num]           :enter path"
+    echo "c [list/-l]       :show path list"
+    echo "c add/-a          :add cur path to list"
+    echo "c del/-d [num]    :delete path"
+    echo "c clear           :clear path"
+    echo "c help/-h         :help"
+}
+
+#help
+function hUSAGE
+{
+    echo "usage"
+    echo "=============="
+    echo "h [num]           :exec cmd"
+    echo "h [list/-l]       :show cmd list"
+    echo "h add/-a cmd      :add cmdh to list"
+    echo "h del/-d [num]    :delete cmd"
+    echo "h clear           :clear cmd"
+    echo "h help/-h         :help"
+}
 
 function c
 {
     case ${1} in
         "list"|"-l")
-            list
+            clist
             ;;
         "add"|"-a")
             shift
-            add $@
+            cadd $@
             ;;
         "del"|"-d")
             shift
-            del $@
+            cdel $@
             ;;
         "clear"|"-c")
-            clear
+            cclear
             ;;
         "help"|"-h")
-            help
+            cUSAGE
             ;;
         *)
             cdir $@
             ;;
     esac
 }
+
+function h
+{
+    case ${1} in
+        "list"|"-l")
+            hlist
+            ;;
+        "add"|"-a")
+            shift
+            hadd $@
+            ;;
+        "del"|"-d")
+            shift
+            hdel $@
+            ;;
+        "clear"|"-c")
+            hclear
+            ;;
+        "help"|"-h")
+            hUSAGE
+            ;;
+        *)
+            hcmd $@
+            ;;
+    esac
+}
+
+function _checkstr
+{
+    local s1=S1
+    local s2=S2
+    local str=$s1
+    local char=""
+    
+    if [[ ${#s2} -eq 0 ]];then
+        return 1
+    fi
+    
+    for i in $(seq ${#s2})
+    do
+        char=${s2:i-1:1}
+        if [[ $str == ${str#*${char}} ]];then
+            return 0
+        else
+            str=${str#*${char}}
+        fi
+        
+        if [[ $str == "" && ${s1:${#s1}-1:1} != ${char} ]];then
+            return 0
+        fi
+    done
+    return 1
+}
+    
+function _getstrcomm
+{
+    local len=$#
+    local arr=($@)
+    local char=""
+    local tstr=""
+    
+    local s1=${arr[0]}
+    while [ true ]
+    do
+        char=${s1:0:1}
+        if [[ $char == "" ]];then
+            echo ${arr[0]}
+            return
+        fi
+        
+        for i in ${seq $(($len-1)))
+        do
+            tstr=${arr[$i]}
+            if [[ ${tstr:0:1} != $char ]];then
+                tstr=${arr[0]}
+                echo ${tstr%*${s1}}
+                return
+            fi
+            arr[i]=${tstr:1}
+        done
+        s1=${s1:1}
+    done
+}
+
+function _ch
+{
+    local cur prev
+    local arr=()
+    local comm=""
+    COMPREPLY=()
+    
+    cur="${COMP_WORDS[COMP_CWORD]}:
+    prev="${COMP_WORDS[COMP_CWORD-1]}:
+    
+    if [[ ${prev} == c ]];then
+        while read line
+        do 
+            _checkstr ${line} ${cur}
+            if [[ $? -eq 1 ]];then
+                arr[${#arr[*]}]="${line}"
+            fi
+        done < $cinfo
+        
+        comm=$(_getstrcomm ${arr[@]})
+        if [[ $comm != $cur ]];then
+            COMPREPLY=(${comm})
+        else
+            COMPREPLY=(${arr[*]})
+        fi
+    elif [[ ${prev} == h ]];then
+        while read line
+        do
+            line="'${line}'"
+            if [[ "${line:0:${#cur}}" == "${cur}" ]];then
+                COMPREPLY[${#COMPREPLY[*]}]="${line}"
+            fi
+        done < $hinfo
+    fi
+}
+    
+    
+complete -o nospace -F _ch c
+complete -o nospace -F _ch h
+    
+    
+    
+
 
 
