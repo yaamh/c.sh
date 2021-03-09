@@ -66,13 +66,13 @@ function cdel
     
     local maxline=$(cat $cinfo|wc -l)
     local arr=("$@")
-    arr=$(echo ${arr[@]} | sed 's/ /\n/g'|sort -u)
+    arr=$(echo ${arr[@]} | sed 's/ /\n/g'|sort -u -r)
 
     if [ ${arr[0]} -gt $maxline ];then
         echo "err del line:${arr[0]}"
         return 
     fi
-    for line in ${arr[0]}
+    for line in ${arr[@]}
     do
         sed -i "${line}d" $cinfo
     done
@@ -111,7 +111,7 @@ function cadd
             fi
         done
         if [ $next -ne 1 ];then
-            echo $PWD >>$cinfo
+            echo $PWD >> $cinfo
         fi
     fi
 
@@ -151,6 +151,7 @@ function hadd
     do 
         if [ "line" == "$cmd" ];then
             echo "same cmd:$cmd"
+            return
         fi
     do < $hinfo
     echo -ne "$cmd\n" >> $hinfo
@@ -181,13 +182,13 @@ function cdir
 
     local str=$(echo $1|grep "[^0-9]")
     if [ "$str" != "" ];then
-        echo "cdir err params,err line num"
+        cd $1
         return
     fi
 
     local maxline=$(cat $cinfo|wc -l)
     if [ $1 -gt $maxline ];then
-        echo "cdir err params,>max lines"
+        echo "cdir err params,> max lines"
         return
     fi
 
