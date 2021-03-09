@@ -299,8 +299,8 @@ function _checkstr
         return 1
     fi
     
-    local s1=S1
-    local s2=S2
+    local s1=$1
+    local s2=$2
     local str=$s1
     local char=""
     
