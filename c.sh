@@ -357,8 +357,8 @@ function _ch
     local info=""
     COMPREPLY=()
     
-    cur="${COMP_WORDS[COMP_CWORD]}
-    prev="${COMP_WORDS[COMP_CWORD-1]}
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
     
     if [[ ${prev} == c ]];then
         info=$cinfo
