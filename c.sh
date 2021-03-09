@@ -65,8 +65,7 @@ function cdel
     fi
     
     local maxline=$(cat $cinfo|wc -l)
-    local arr=("$@")
-    arr=$(echo ${arr[@]} | sed 's/ /\n/g'|sort -u -r)
+    arr=$(echo $@ | sed 's/ /\n/g'|sort -u -r)
 
     if [ ${arr[0]} -gt $maxline ];then
         echo "err del line:${arr[0]}"
@@ -164,7 +163,7 @@ function cclear
 }
 
 #清空命令收藏夹
-function cclear
+function hclear
 {
     cat /dev/null > $hinfo
 }
@@ -175,14 +174,11 @@ function cdir
     if [ $# -eq 0 ];then
         clist 
         return
-    elif [ $# -gt 1 ];then
-        echo "cdir err params, > max params num"
-        return
     fi
 
     local str=$(echo $1|grep "[^0-9]")
     if [ "$str" != "" ];then
-        cd $1
+        cd $*
         return
     fi
 
@@ -230,6 +226,7 @@ function cUSAGE
     echo "c del/-d [num]    :delete path"
     echo "c clear           :clear path"
     echo "c help/-h         :help"
+    echo "按tab支持自动补全和智能补全"
 }
 
 #help
@@ -243,8 +240,10 @@ function hUSAGE
     echo "h del/-d [num]    :delete cmd"
     echo "h clear           :clear cmd"
     echo "h help/-h         :help"
+    echo "按tab支持自动补全和智能补全"
 }
 
+#自动补全功能
 function c
 {
     case ${1} in
@@ -299,14 +298,14 @@ function h
 
 function _checkstr
 {
+    if [[ $# -eq 1 ]];then
+        return 1
+    fi
+    
     local s1=S1
     local s2=S2
     local str=$s1
     local char=""
-    
-    if [[ ${#s2} -eq 0 ]];then
-        return 1
-    fi
     
     for i in $(seq ${#s2})
     do
@@ -340,7 +339,7 @@ function _getstrcomm
             return
         fi
         
-        for i in ${seq $(($len-1)))
+        for i in $(seq $(($len-1)))
         do
             tstr=${arr[$i]}
             if [[ ${tstr:0:1} != $char ]];then
@@ -357,37 +356,31 @@ function _getstrcomm
 function _ch
 {
     local cur prev
-    local arr=()
     local comm=""
+    local info=""
     COMPREPLY=()
     
     cur="${COMP_WORDS[COMP_CWORD]}:
     prev="${COMP_WORDS[COMP_CWORD-1]}:
     
     if [[ ${prev} == c ]];then
-        while read line
-        do 
-            _checkstr ${line} ${cur}
-            if [[ $? -eq 1 ]];then
-                arr[${#arr[*]}]="${line}"
-            fi
-        done < $cinfo
-        
-        comm=$(_getstrcomm ${arr[@]})
-        if [[ $comm != $cur ]];then
-            COMPREPLY=(${comm})
-        else
-            COMPREPLY=(${arr[*]})
-        fi
+        info=$cinfo
     elif [[ ${prev} == h ]];then
-        while read line
-        do
-            line="'${line}'"
-            if [[ "${line:0:${#cur}}" == "${cur}" ]];then
-                COMPREPLY[${#COMPREPLY[*]}]="${line}"
-            fi
-        done < $hinfo
+        info=$cinfo
     fi
+    
+    while read line
+    do 
+        if [[ ${prev} == h ]];then
+            line="'${line}'"
+        fi
+        
+        local arg=("${line}" "${cur}")
+        _checkstr "${arg[@]}"
+        if [[ $? -eq 1 ]];then
+            COMPREPLY[${#COMPREPLY[*]}]="${line}"
+        fi
+    done < $info
 }
     
     
