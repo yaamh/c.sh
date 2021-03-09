@@ -47,9 +47,6 @@ function hlist
     fi
 }
         
-
-
-
 #删除路径
 function cdel
 {
@@ -65,7 +62,7 @@ function cdel
     fi
     
     local maxline=$(cat $cinfo|wc -l)
-    arr=$(echo $@ | sed 's/ /\n/g'|sort -u -r)
+    arr=($(echo $@ | sed 's/ /\n/g'|sort -u -r))
 
     if [ ${arr[0]} -gt $maxline ];then
         echo "err del line:${arr[0]}"
@@ -152,7 +149,7 @@ function hadd
             echo "same cmd:$cmd"
             return
         fi
-    do < $hinfo
+    done < $hinfo
     echo -ne "$cmd\n" >> $hinfo
 }
 
@@ -360,13 +357,13 @@ function _ch
     local info=""
     COMPREPLY=()
     
-    cur="${COMP_WORDS[COMP_CWORD]}:
-    prev="${COMP_WORDS[COMP_CWORD-1]}:
+    cur="${COMP_WORDS[COMP_CWORD]}
+    prev="${COMP_WORDS[COMP_CWORD-1]}
     
     if [[ ${prev} == c ]];then
         info=$cinfo
     elif [[ ${prev} == h ]];then
-        info=$cinfo
+        info=$hinfo
     fi
     
     while read line
