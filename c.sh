@@ -426,15 +426,15 @@ if [ ! -d "$_C_infodir" ];then
     mkdir $_C_infodir
 fi
   
-if [ ! -d "$_C_cinfo" ];then
+if [ ! -f "$_C_cinfo" ];then
     touch $_C_cinfo
 fi
 
-if [ ! -d "$_C_chistory" ];then
+if [ ! -f "$_C_chistory" ];then
     touch $_C_chistory
 fi
 
-if [ ! -d "$_C_hinfo" ];then
+if [ ! -f "$_C_hinfo" ];then
     touch $_C_hinfo
 fi
 
