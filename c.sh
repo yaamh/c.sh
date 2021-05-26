@@ -427,15 +427,15 @@ if [ ! -d "$_C_infodir" ];then
 fi
   
 if [ ! -d "$_C_cinfo" ];then
-    mkdir $_C_cinfo
+    touch $_C_cinfo
 fi
 
 if [ ! -d "$_C_chistory" ];then
-    mkdir $_C_chistory
+    touch $_C_chistory
 fi
 
 if [ ! -d "$_C_hinfo" ];then
-    mkdir $_C_hinfo
+    touch $_C_hinfo
 fi
 
 alias cd='cupdate_history;cd'
