@@ -1,25 +1,52 @@
 #!/bin/bash
 
-cinfo=$HOME/.cinfo
-hinfo=$HOME/.hinfo
+_C_infodir=$HOME/.c
+_C_cinfo=$_C_infodir/.cinfo
+_C_hinfo=$_C_infodir/.hinfo
+_C_chistory=$_C_infodir/.chistory
 
+#呼出搜索路径
+function cfind
+{
+    local cdir=$(find * -type d | fzf --bind ctrl-j:down --bind ctrl-k:up)
+    if [ -n "$(echo $cdir | grep "\S")" ];then
+        cd $cdir
+    fi
+}
+
+#呼出历史路径
+function cdir_history
+{
+    local cdir=$(tac $_C_chistory | fzf --bind ctrl-j:down --bind ctrl-k:up)
+    if [ -n "$(echo $cdir | grep "\S")" ];then
+        cd $cdir
+    fi
+}
+
+#更新路径历史纪录
+function cupdate_history
+{
+    if [ "$(tail -n 1 $_C_chistory)" == "$PWD" ];then
+        return
+    fi
+    echo ${PWD} >> $_C_chistory
+    local num=$(($(wc -l $_C_chistory | cut -d " " -f 1)-100))
+    if [ $num -gt 0 ];then
+        sed -i '1,'"$num"'d' $_C_chistory
+    fi  
+}
 
 #打印收藏夹
 function clist
 { 
     local l=1
 
-    if [ ! -f "$cinfo" ];then
-        touch $cinfo
-        return
-    fi
+    local sortfile=$(cat $_C_cinfo | sort)
 
-    local sortfile=$(cat $cinfo | sort)
-
-    echo $sortfile | sed "s/ /\n/g" > $cinfo
+    echo $sortfile | sed "s/ /\n/g" > $_C_cinfo
 
     echo ""
-    for line in $(cat $cinfo)
+    for line in $(cat $_C_cinfo)
     do 
         echo $line $l
         let l++
@@ -32,18 +59,13 @@ function hlist
 { 
     local l=1
 
-    if [ ! -f "$hinfo" ];then
-        touch $hinfo
-        return
-    fi
-
     echo ""
-    cat $hinfo | sort | awk '{print NR" "$0}'
+    cat $_C_hinfo | sort | awk '{print NR" "$0}'
     echo ""
-    cat $hinfo | sort | awk '{print $0 >> "'${hinfo}tmp'"}'
+    cat $_C_hinfo | sort | awk '{print $0 >> "'${_C_hinfo}tmp'"}'
     
-    if [ -f "${hinfo}tmp" ];then
-        mv ${hinfo}tmp $hinfo
+    if [ -f "${_C_hinfo}tmp" ];then
+        mv ${_C_hinfo}tmp $_C_hinfo
     fi
 }
         
@@ -51,7 +73,7 @@ function hlist
 function cdel
 {
     if [ $# -eq 0 ];then
-        sed -i "\%^${PWD}$%d" $cinfo
+        sed -i "\%^${PWD}$%d" $_C_cinfo
         return
     fi
 
@@ -61,7 +83,7 @@ function cdel
         return
     fi
     
-    local maxline=$(cat $cinfo|wc -l)
+    local maxline=$(cat $_C_cinfo|wc -l)
     arr=($(echo $@ | sed 's/ /\n/g'|sort -u -r))
 
     if [ ${arr[0]} -gt $maxline ];then
@@ -70,14 +92,14 @@ function cdel
     fi
     for line in ${arr[@]}
     do
-        sed -i "${line}d" $cinfo
+        sed -i "${line}d" $_C_cinfo
     done
 }
 
 #删除命令
 function hdel
 {
-    local maxline=$(cat $hinfo|wc -l)
+    local maxline=$(cat $_C_hinfo|wc -l)
     local arr=("$@")
     arr=($(echo ${arr[@]} | sed 's/ /\n/g'|sort -u -r))
     
@@ -87,7 +109,7 @@ function hdel
     fi
     for line in ${arr[@]}
     do
-        sed -i "${line}d" $hinfo
+        sed -i "${line}d" $_C_hinfo
     done
 }
 
@@ -98,7 +120,7 @@ function cadd
     local dir=""
 
     if [ $# -eq 0 ];then
-        for line in $(cat $cinfo)
+        for line in $(cat $_C_cinfo)
         do
             if [ $line == $PWD ];then
                 echo "same dir:$PWD"
@@ -107,7 +129,7 @@ function cadd
             fi
         done
         if [ $next -ne 1 ];then
-            echo $PWD >> $cinfo
+            echo $PWD >> $_C_cinfo
         fi
     fi
 
@@ -115,7 +137,7 @@ function cadd
     while [ $# -ne 0 ];do
         if [ -d $1 ];then
             dir=$(cd $1;echo $PWD)
-            for line in $(cat $cinfo)
+            for line in $(cat $_C_cinfo)
             do
                 if [ $line == $dir ];then
                     echo "same dir:$dir"
@@ -124,7 +146,7 @@ function cadd
                 fi
             done
             if [ $next -ne 1 ];then
-                echo $dir >> $cinfo
+                echo $dir >> $_C_cinfo
             fi
             next=0
         else
@@ -149,50 +171,57 @@ function hadd
             echo "same cmd:$cmd"
             return
         fi
-    done < $hinfo
-    echo -ne "$cmd\n" >> $hinfo
+    done < $_C_hinfo
+    echo -ne "$cmd\n" >> $_C_hinfo
 }
 
 #清空收藏夹
 function cclear
 {
-    cat /dev/null > $cinfo
+    cat /dev/null > $_C_cinfo
 }
 
 #清空命令收藏夹
 function hclear
 {
-    cat /dev/null > $hinfo
+    cat /dev/null > $_C_hinfo
 }
 
 #进入收藏夹
 function cdir
 {
     if [ $# -eq 0 ];then
-        clist 
+        local cdir=$(cat $_C_cinfo | fzf --bind ctrl-j:down --bind ctrl-k:up)
+        if [ -n "$(echo $cdir | grep "\S")" ];then
+            cd $cdir
+        fi
         return
     fi
 
+    local dir=""
     local str=$(echo $1|grep "[^0-9]")
     if [ "$str" != "" ];then
-        cd $*
-        return
+       dir=$*
+    else
+        dir=$(sed -n "$1p" $_C_cinfo)   
+        local maxline=$(cat $_C_cinfo|wc -l)
+        if [ $1 -gt $maxline ];then
+            echo "cdir err params,> max lines"
+            return
+        fi
     fi
-
-    local maxline=$(cat $cinfo|wc -l)
-    if [ $1 -gt $maxline ];then
-        echo "cdir err params,> max lines"
-        return
-    fi
-
-    cd $(sed -n "$1p" $cinfo)
+    
+    cd $cdir
 }
 
 #执行命令
 function hcmd
 {
     if [ $# -eq 0 ];then
-        hlist
+        local hcmd=$(cat $_C_hinfo | fzf --bind ctrl-j:down --bind ctrl-k:up)
+        if [ -n "$(echo $hcmd | grep "\S")" ];then
+            eval $hcmd
+        fi
         return
     fi
     
@@ -202,13 +231,13 @@ function hcmd
         return
     fi
     
-    local maxline=$(cat $hinfo|wc -l)
+    local maxline=$(cat $_C_hinfo|wc -l)
     if [ $1 -gt $maxline ];then
         echo "cmd err params, > max lines"
         return
     fi
     
-    eval $(sed -n "$1p" $hinfo)
+    eval $(sed -n "$1p" $_C_hinfo)
 }
 
 
@@ -223,6 +252,8 @@ function cUSAGE
     echo "c del/-d [num]    :delete path"
     echo "c clear           :clear path"
     echo "c help/-h         :help"
+    echo "c find/-f         :find path"
+    echo "c history/-hi     :find history path"
     echo "按tab支持自动补全和智能补全"
 }
 
@@ -260,6 +291,12 @@ function c
             ;;
         "help"|"-h")
             cUSAGE
+            ;;
+        "history"|"-hi")
+            cdir_history
+            ;;
+        "find"|"-f")
+            cfind
             ;;
         *)
             cdir $@
@@ -361,9 +398,9 @@ function _ch
     prev=${COMP_WORDS[COMP_CWORD-1]}
     
     if [[ ${prev} == c ]];then
-        info=$cinfo
+        info=$_C_cinfo
     elif [[ ${prev} == h ]];then
-        info=$hinfo
+        info=$_C_hinfo
     fi
     
     while read line
@@ -384,8 +421,25 @@ function _ch
 complete -o nospace -F _ch c
 complete -o nospace -F _ch h
     
-    
-    
+#不存在则创建
+if [ ! -d "$_C_infodir" ];then
+    mkdir $_C_infodir
+fi
+  
+if [ ! -d "$_C_cinfo" ];then
+    mkdir $_C_cinfo
+fi
+
+if [ ! -d "$_C_chistory" ];then
+    mkdir $_C_chistory
+fi
+
+if [ ! -d "$_C_hinfo" ];then
+    mkdir $_C_hinfo
+fi
+
+alias cd='cupdate_history;cd'
+
 
 
 
