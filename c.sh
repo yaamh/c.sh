@@ -17,7 +17,7 @@ function cfind
 #呼出历史路径
 function cdir_history
 {
-    local cdir=$(tac $_C_chistory | fzf --bind ctrl-j:down --bind ctrl-k:up)
+    local cdir=$(tac $_C_chistory | awk '!a[$0]++' | fzf --bind ctrl-j:down --bind ctrl-k:up)
     if [ -n "$(echo $cdir | grep "\S")" ];then
         cd $cdir
     fi
