@@ -439,6 +439,9 @@ if [ ! -f "$_C_hinfo" ];then
 fi
 
 alias cd='cupdate_history;cd'
+alias chi='c -hi'
+alias cf='c -f'
+alias vf='vi $(fzf)'
 
 
 
