@@ -211,7 +211,7 @@ function cdir
         fi
     fi
     
-    cd $cdir
+    cd $dir
 }
 
 #执行命令
